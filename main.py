@@ -1,24 +1,43 @@
 from flask import Flask, request, jsonify
-import os
+from flask_cors import CORS
+import random
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/')
 def home():
-    return "JobWhizAI GPT Resume Backend is running!"
+    return "JobWhiz GPT Resume Analyzer is running!"
 
 @app.route('/analyze', methods=['POST'])
-def analyze():
-    resume = request.json.get('resume')
-    if not resume:
-        return jsonify({"error": "No resume provided"}), 400
+def analyze_resume():
+    if 'resume' not in request.files:
+        return jsonify({'error': 'No resume file uploaded'}), 400
 
-    # Fake score logic (replace with real AI later)
+    resume = request.files['resume']
+    content = resume.read().decode('utf-8', errors='ignore')
+
+    score = random.randint(50, 95)
+
+    if score < 60:
+        badge = "Not Recruiter-Friendly"
+    elif score < 80:
+        badge = "Almost There"
+    else:
+        badge = "Impressive Resume"
+
+    analysis = {
+        "strengths": "Strong formatting, clear sections, good language.",
+        "weaknesses": "Needs more metrics, lacks achievements.",
+        "dislikes": "Too many buzzwords, unclear objective.",
+        "suggestions": "Use numbers, reduce fluff, add specific results."
+    }
+
     return jsonify({
-        "score": 62,
-        "badge": "Not Recruiter-Friendly"
+        "score": score,
+        "badge": badge,
+        "analysis": analysis
     })
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+if _name_ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
