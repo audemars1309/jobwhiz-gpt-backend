@@ -1,32 +1,24 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-import openai
+from flask import Flask, request, jsonify
 import os
 
-app = FastAPI()
+app = Flask(__name__)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change this to your domain in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.route('/')
+def home():
+    return "JobWhizAI GPT Resume Backend is running!"
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    resume = request.json.get('resume')
+    if not resume:
+        return jsonify({"error": "No resume provided"}), 400
 
-@app.post("/analyze-resume")
-async def analyze_resume(file: UploadFile = File(...)):
-    content = await file.read()
-    text = content.decode("utf-8", errors="ignore")
+    # Fake score logic (replace with real AI later)
+    return jsonify({
+        "score": 62,
+        "badge": "Not Recruiter-Friendly"
+    })
 
-    prompt = f"You're a top-tier recruiter. Analyze the following resume and give a score out of 100, and state the strengths, weaknesses, and improvement suggestions:\n\n{text}"
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{ "role": "user", "content": prompt }],
-        temperature=0.7
-    )
-
-    result = response.choices[0].message.content
-    return { "analysis": result }
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
