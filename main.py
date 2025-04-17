@@ -2,9 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 import os
-import datetime
 import json
-import re
 
 app = Flask(__name__)
 CORS(app)
@@ -19,58 +17,63 @@ def home():
 def analyze_resume():
     try:
         if "resume" not in request.files:
-            return jsonify({"error": "No resume file provided"}), 400
+            return jsonify({"error": "No resume file uploaded"}), 400
 
         resume_file = request.files["resume"]
         resume_text = resume_file.read().decode("utf-8")
 
-        gpt_prompt = f"""
-You are an expert resume reviewer. Analyze the resume below and return ONLY a JSON object like this:
+        prompt = f"""
+You are a resume expert AI. Read the resume below and return only valid JSON in this format:
 
 {{
-  "score": 85,
-  "badge": "Impressive Resume",
+  "score": 0 to 100 (based on formatting, keyword usage, ATS compatibility),
+  "badge": "Not Recruiter-Friendly" or "Almost There" or "Impressive Resume" or "ATS Optimized",
   "analysis": {{
-    "strengths": "Clear formatting, impactful language.",
-    "weaknesses": "Lacks measurable achievements.",
-    "dislikes": "Overuse of buzzwords.",
-    "suggestions": "Add numbers, be concise, tailor to job."
+    "strengths": "List 2-3 key strengths",
+    "weaknesses": "List 2-3 key weaknesses",
+    "dislikes": "What might recruiters dislike?",
+    "suggestions": "3 solid improvement tips"
   }}
 }}
 
-BADGE must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
-SCORE must be between 1 and 100.
-
-ONLY return the JSON. No extra commentary.
-
-Resume:
-{resume_text}
-"""
+ONLY return valid JSON. No explanations. Resume:
+"""{resume_text}"""
+        """
 
         response = openai.ChatCompletion.create(
             model="gpt-4",
+            temperature=0.7,
             messages=[
-                {"role": "system", "content": "You are a professional resume scoring assistant."},
-                {"role": "user", "content": gpt_prompt}
-            ],
-            temperature=0.4
+                {"role": "system", "content": "You are a resume reviewing assistant."},
+                {"role": "user", "content": prompt}
+            ]
         )
 
         content = response.choices[0].message.content.strip()
 
-        # Extract JSON using regex in case GPT adds fluff
-        json_match = re.search(r"\{.*\}", content, re.DOTALL)
-        if not json_match:
-            return jsonify({"error": "Could not find valid JSON in AI response."}), 500
+        try:
+            if content.startswith("```json"):
+                content = content[7:-3].strip()
+            elif content.startswith("```"):
+                content = content[3:-3].strip()
 
-        cleaned_json = json_match.group()
-        result = json.loads(cleaned_json)
+            data = json.loads(content)
 
-        return jsonify(result)
+            required_keys = {"score", "badge", "analysis"}
+            if not all(key in data for key in required_keys):
+                raise ValueError("Missing keys in response")
+
+            return jsonify(data)
+
+        except Exception as parse_err:
+            return jsonify({
+                "error": "Failed to parse GPT response",
+                "raw_response": content
+            }), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
 
