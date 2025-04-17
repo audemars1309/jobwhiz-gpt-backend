@@ -35,29 +35,24 @@ def analyze_resume():
         resume_file = request.files["resume"]
         resume_text = resume_file.read().decode("utf-8")
 
-        gpt_prompt = f'''
-You are a top-tier career advisor and recruiter AI. Analyze the following resume and give:
+        gpt_prompt = f"""
+You are a professional AI resume evaluator. Analyze the resume below and strictly respond ONLY in this exact JSON format:
 
-1. A score out of 100 based on ATS-friendliness, formatting, keyword match, and recruiter appeal.
-2. A badge (choose from: 'Not Recruiter-Friendly', 'Almost There', 'Impressive Resume', 'ATS Optimized').
-3. Detailed analysis with:
-  - Strengths
-  - Weaknesses
-  - What recruiters might dislike
-  - Suggestions to improve
-
-Only return JSON like this:
 {{
   "score": 87,
   "badge": "Impressive Resume",
   "analysis": {{
-    "strengths": "...",
-    "weaknesses": "...",
-    "dislikes": "...",
-    "suggestions": "..."
+    "strengths": "Summarize 2-3 key strengths of this resume.",
+    "weaknesses": "Summarize 2-3 weaknesses in tone, formatting, or structure.",
+    "dislikes": "What might recruiters dislike in this resume?",
+    "suggestions": "How can this resume be improved in 3 quick suggestions?"
   }}
 }}
 
+Score must be out of 100 based on ATS friendliness, formatting, and recruiter psychology.
+Badge must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
+
+Do NOT add any comments or extra text. Only valid parsable JSON.
 Resume:
 {resume_text}
 '''
