@@ -1,26 +1,15 @@
-from datetime import datetime
-import json
-import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
+import os
+import datetime
+import json
+import re
 
 app = Flask(__name__)
 CORS(app)
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-LOG_FILE = "resume_analysis_log.json"
-
-def log_resume_analysis(entry):
-    if not os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "w") as f:
-            json.dump([], f)
-    with open(LOG_FILE, "r+") as f:
-        data = json.load(f)
-        data.append(entry)
-        f.seek(0)
-        json.dump(data, f, indent=4)
 
 @app.route("/", methods=["GET"])
 def home():
@@ -36,23 +25,23 @@ def analyze_resume():
         resume_text = resume_file.read().decode("utf-8")
 
         gpt_prompt = f"""
-You are a professional AI resume evaluator. Analyze the resume below and strictly respond ONLY in this exact JSON format:
+You are an expert resume reviewer. Analyze the resume below and return ONLY a JSON object like this:
 
 {{
-  "score": 87,
+  "score": 85,
   "badge": "Impressive Resume",
   "analysis": {{
-    "strengths": "Summarize 2-3 key strengths of this resume.",
-    "weaknesses": "Summarize 2-3 weaknesses in tone, formatting, or structure.",
-    "dislikes": "What might recruiters dislike in this resume?",
-    "suggestions": "How can this resume be improved in 3 quick suggestions?"
+    "strengths": "Clear formatting, impactful language.",
+    "weaknesses": "Lacks measurable achievements.",
+    "dislikes": "Overuse of buzzwords.",
+    "suggestions": "Add numbers, be concise, tailor to job."
   }}
 }}
 
-Score must be out of 100 based on ATS friendliness, formatting, and recruiter psychology.
-Badge must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
+BADGE must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
+SCORE must be between 1 and 100.
 
-Do NOT add any comments or extra text. Only return valid JSON.
+ONLY return the JSON. No extra commentary.
 
 Resume:
 {resume_text}
@@ -61,26 +50,21 @@ Resume:
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a professional resume reviewer. Only respond in valid JSON format."},
+                {"role": "system", "content": "You are a professional resume scoring assistant."},
                 {"role": "user", "content": gpt_prompt}
             ],
-            temperature=0.3
+            temperature=0.4
         )
 
         content = response.choices[0].message.content.strip()
 
-        try:
-            result = json.loads(content)
-        except json.JSONDecodeError:
-            return jsonify({"error": "AI response was not valid JSON."}), 500
+        # Extract JSON using regex in case GPT adds fluff
+        json_match = re.search(r"\{.*\}", content, re.DOTALL)
+        if not json_match:
+            return jsonify({"error": "Could not find valid JSON in AI response."}), 500
 
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "score": result.get("score"),
-            "badge": result.get("badge"),
-            "resume_excerpt": resume_text[:300]
-        }
-        log_resume_analysis(log_entry)
+        cleaned_json = json_match.group()
+        result = json.loads(cleaned_json)
 
         return jsonify(result)
 
@@ -89,3 +73,4 @@ Resume:
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
