@@ -1,43 +1,96 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import random
+import openai
+import os
+import datetime
+import json
 
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/')
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+LOG_FILE = "resume_analysis_log.json"
+
+def log_resume_analysis(entry):
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "w") as f:
+            json.dump([], f)
+    with open(LOG_FILE, "r+") as f:
+        data = json.load(f)
+        data.append(entry)
+        f.seek(0)
+        json.dump(data, f, indent=4)
+
+@app.route("/", methods=["GET"])
 def home():
     return "JobWhiz GPT Resume Analyzer is running!"
 
-@app.route('/analyze', methods=['POST'])
+@app.route("/analyze", methods=["POST"])
 def analyze_resume():
-    if 'resume' not in request.files:
-        return jsonify({'error': 'No resume file uploaded'}), 400
+    try:
+        if "resume" not in request.files:
+            return jsonify({"error": "No resume file provided"}), 400
 
-    resume = request.files['resume']
-    content = resume.read().decode('utf-8', errors='ignore')
+        resume_file = request.files["resume"]
+        resume_text = resume_file.read().decode("utf-8")
 
-    score = random.randint(50, 95)
+        gpt_prompt = f'''
+You are a top-tier career advisor and recruiter AI. Analyze the following resume and give:
 
-    if score < 60:
-        badge = "Not Recruiter-Friendly"
-    elif score < 80:
-        badge = "Almost There"
-    else:
-        badge = "Impressive Resume"
+1. A score out of 100 based on ATS-friendliness, formatting, keyword match, and recruiter appeal.
+2. A badge (choose from: 'Not Recruiter-Friendly', 'Almost There', 'Impressive Resume', 'ATS Optimized').
+3. Detailed analysis with:
+  - Strengths
+  - Weaknesses
+  - What recruiters might dislike
+  - Suggestions to improve
 
-    analysis = {
-        "strengths": "Strong formatting, clear sections, good language.",
-        "weaknesses": "Needs more metrics, lacks achievements.",
-        "dislikes": "Too many buzzwords, unclear objective.",
-        "suggestions": "Use numbers, reduce fluff, add specific results."
-    }
+Only return JSON like this:
+{{
+  "score": 87,
+  "badge": "Impressive Resume",
+  "analysis": {{
+    "strengths": "...",
+    "weaknesses": "...",
+    "dislikes": "...",
+    "suggestions": "..."
+  }}
+}}
 
-    return jsonify({
-        "score": score,
-        "badge": badge,
-        "analysis": analysis
-    })
+Resume:
+{resume_text}
+'''
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a professional resume reviewer."},
+                {"role": "user", "content": gpt_prompt}
+            ],
+            temperature=0.7
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            return jsonify({"error": "AI response was not valid JSON."}), 500
+
+        # Log with timestamp
+        log_entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "score": result.get("score"),
+            "badge": result.get("badge"),
+            "resume_excerpt": resume_text[:300]
+        }
+        log_resume_analysis(log_entry)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True)
