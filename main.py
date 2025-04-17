@@ -51,7 +51,7 @@ ONLY return valid JSON. No explanations. Resume:
 """
 
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a professional resume reviewer."},
                 {"role": "user", "content": prompt}
