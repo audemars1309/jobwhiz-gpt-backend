@@ -1,9 +1,9 @@
+from datetime import datetime
+import json
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
-import os
-import datetime
-import json
 
 app = Flask(__name__)
 CORS(app)
@@ -52,7 +52,7 @@ You are a professional AI resume evaluator. Analyze the resume below and strictl
 Score must be out of 100 based on ATS friendliness, formatting, and recruiter psychology.
 Badge must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
 
-Do NOT add any comments or extra text. Only valid parsable JSON.
+Do NOT add any comments or extra text. Only return valid JSON.
 
 Resume:
 {resume_text}
@@ -61,10 +61,10 @@ Resume:
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a professional resume reviewer."},
+                {"role": "system", "content": "You are a professional resume reviewer. Only respond in valid JSON format."},
                 {"role": "user", "content": gpt_prompt}
             ],
-            temperature=0.7
+            temperature=0.3
         )
 
         content = response.choices[0].message.content.strip()
@@ -74,9 +74,8 @@ Resume:
         except json.JSONDecodeError:
             return jsonify({"error": "AI response was not valid JSON."}), 500
 
-        # Log with timestamp
         log_entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "score": result.get("score"),
             "badge": result.get("badge"),
             "resume_excerpt": resume_text[:300]
