@@ -1,15 +1,22 @@
+from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 import os
-import datetime
 import json
-import fitz #PyMuPDF
+import fitz  # PyMuPDF
 
 app = Flask(__name__)
 CORS(app)
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+def extract_text_from_pdf(file):
+    with fitz.open(stream=file.read(), filetype="pdf") as doc:
+        text = ""
+        for page in doc:
+            text += page.get_text()
+    return text
 
 @app.route("/", methods=["GET"])
 def home():
@@ -22,13 +29,7 @@ def analyze_resume():
             return jsonify({"error": "No resume file uploaded"}), 400
 
         resume_file = request.files["resume"]
-        
-def extract_text_from_pdf(file):
-    with fitz.open(stream=file.read(), filetype="pdf") as doc:
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        return text
+        resume_text = extract_text_from_pdf(resume_file)
 
         prompt = f"""You are a resume expert AI. Read the resume below and return only valid JSON.
 
@@ -43,8 +44,7 @@ def extract_text_from_pdf(file):
   }}
 }}
 
-ONLY return valid JSON. No explanations.
-Resume:
+ONLY return valid JSON. No explanations. Resume:
 {resume_text}
 """
 
@@ -70,6 +70,4 @@ Resume:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
-
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
