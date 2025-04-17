@@ -4,6 +4,7 @@ import openai
 import os
 import datetime
 import json
+import fitz #PyMuPDF
 
 app = Flask(__name__)
 CORS(app)
@@ -21,7 +22,13 @@ def analyze_resume():
             return jsonify({"error": "No resume file uploaded"}), 400
 
         resume_file = request.files["resume"]
-        resume_text = resume_file.read().decode("utf-8")
+        
+def extract_text_from_pdf(file):
+    with fitz.open(stream=file.read(), filetype="pdf") as doc:
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
 
         prompt = f"""You are a resume expert AI. Read the resume below and return only valid JSON.
 
