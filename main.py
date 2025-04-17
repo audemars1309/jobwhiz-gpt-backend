@@ -53,9 +53,10 @@ Score must be out of 100 based on ATS friendliness, formatting, and recruiter ps
 Badge must be one of: "Not Recruiter-Friendly", "Almost There", "Impressive Resume", "ATS Optimized".
 
 Do NOT add any comments or extra text. Only valid parsable JSON.
+
 Resume:
 {resume_text}
-'''
+"""
 
         response = openai.ChatCompletion.create(
             model="gpt-4",
