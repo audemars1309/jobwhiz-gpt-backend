@@ -42,7 +42,7 @@ def analyze_resume():
     "strengths": "List 2-3 key strengths",
     "weaknesses": "List 2-3 key weaknesses",
     "dislikes": "What might recruiters dislike?",
-    "suggestions": "3 solid improvement tips"
+    "suggestions": "Give 3 solid improvement tips. Ensure every sentence ends with a full stop."
   }}
 }}
 
